@@ -4,6 +4,7 @@ ml/data/processed/
 data/
 *.zip
 ml/models/
+service/data/
 
 # Python
 __pycache__/

@@ -43,6 +43,21 @@ Frontend Demo (Web)
 - **Frontend:** lightweight web UI (framework TBD)
 - **Data:** MovieLens + TMDB API
 
+## Local Run (Dev)
+1) Build pipeline outputs:
+```bash
+python ml/scripts/ingest_movielens.py --raw-dir ml/data/raw --out-dir ml/data/processed
+python ml/scripts/build_features.py --processed-dir ml/data/processed --out-dir ml/data/processed/features
+python ml/scripts/build_training_dataset.py --processed-dir ml/data/processed --features-dir ml/data/processed/features --out-dir ml/data/processed/training
+python ml/scripts/train_lightgbm.py --training-dir ml/data/processed/training --out-dir ml/models
+python ml/scripts/export_service_data.py --features-dir ml/data/processed/features --out-dir service/data
+```
+
+2) Run the Go service:
+```bash
+go run ./service/cmd/server
+```
+
 ## API (Draft)
 
 ### Rank Movies

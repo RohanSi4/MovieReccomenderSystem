@@ -89,3 +89,13 @@ This writes:
 - `ml/models/lightgbm_model.txt`
 - `ml/models/feature_columns.json`
 - `ml/models/metrics.json`
+
+## Export for Go Service
+Run:
+```bash
+python ml/scripts/export_service_data.py \
+  --features-dir ml/data/processed/features \
+  --out-dir service/data
+```
+
+This creates compact CSVs consumed by the Go API.
