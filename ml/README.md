@@ -71,3 +71,21 @@ python ml/scripts/build_training_dataset.py \
 ```
 
 This creates `train.parquet` and `val.parquet` using a time-based split.
+
+## Train Ranker
+Install deps if needed:
+```bash
+pip install -r requirements.txt
+```
+
+Run:
+```bash
+python ml/scripts/train_lightgbm.py \
+  --training-dir ml/data/processed/training \
+  --out-dir ml/models
+```
+
+This writes:
+- `ml/models/lightgbm_model.txt`
+- `ml/models/feature_columns.json`
+- `ml/models/metrics.json`

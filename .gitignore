@@ -3,6 +3,7 @@ ml/data/raw/
 ml/data/processed/
 data/
 *.zip
+ml/models/
 
 # Python
 __pycache__/
