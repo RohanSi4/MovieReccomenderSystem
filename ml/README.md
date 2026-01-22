@@ -46,3 +46,28 @@ python ml/scripts/enrich_tmdb.py --processed-dir ml/data/processed --out ml/data
 ```
 
 This fetches a tight set of fields (genres, popularity, vote averages, runtime, poster path, overview).
+
+## Feature Tables
+Run:
+```bash
+python ml/scripts/build_features.py --processed-dir ml/data/processed --out-dir ml/data/processed/features
+```
+
+If TMDB enrichment is complete, join it in:
+```bash
+python ml/scripts/build_features.py \
+  --processed-dir ml/data/processed \
+  --tmdb-csv ml/data/processed/tmdb_enriched.csv \
+  --out-dir ml/data/processed/features
+```
+
+## Training Dataset
+Run:
+```bash
+python ml/scripts/build_training_dataset.py \
+  --processed-dir ml/data/processed \
+  --features-dir ml/data/processed/features \
+  --out-dir ml/data/processed/training
+```
+
+This creates `train.parquet` and `val.parquet` using a time-based split.
