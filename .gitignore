@@ -1,0 +1,15 @@
+# Data artifacts
+ml/data/raw/
+ml/data/processed/
+data/
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+
+# OS
+.DS_Store
