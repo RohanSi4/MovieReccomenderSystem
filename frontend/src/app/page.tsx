@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type RankResult = {
   movie_id: number;
@@ -11,12 +11,19 @@ type RankResult = {
 };
 
 type RankResponse = {
-  user_id: number;
+  user_id?: number;
+  movie_id?: number;
   results: RankResult[];
   latency_ms?: number;
 };
 
+type SearchResult = {
+  movie_id: number;
+  title: string;
+};
+
 type Status = "idle" | "loading" | "success" | "error";
+type Mode = "movie" | "user";
 
 const FALLBACK_POSTER =
   "data:image/svg+xml;charset=utf-8," +
@@ -34,6 +41,8 @@ export default function Home() {
     () => process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080",
     []
   );
+
+  const [mode, setMode] = useState<Mode>("movie");
   const [userId, setUserId] = useState("123");
   const [k, setK] = useState(12);
   const [results, setResults] = useState<RankResult[]>([]);
@@ -41,14 +50,42 @@ export default function Home() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const runRank = async (overrideUserId?: number) => {
-    const resolvedUserId = overrideUserId ?? Number(userId);
-    if (!resolvedUserId || Number.isNaN(resolvedUserId)) {
-      setStatus("error");
-      setError("Enter a valid user id.");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState<SearchResult | null>(null);
+
+  useEffect(() => {
+    if (mode !== "movie") {
+      return;
+    }
+    if (searchQuery.trim().length < 2) {
+      setSuggestions([]);
       return;
     }
 
+    const handle = setTimeout(async () => {
+      try {
+        setIsSearching(true);
+        const response = await fetch(
+          `${apiBase}/search?q=${encodeURIComponent(searchQuery.trim())}&limit=8`
+        );
+        if (!response.ok) {
+          throw new Error("Search failed");
+        }
+        const data = (await response.json()) as SearchResult[];
+        setSuggestions(data);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(handle);
+  }, [apiBase, mode, searchQuery]);
+
+  const runRank = async (payload: { userId?: number; movieId?: number }) => {
     setStatus("loading");
     setError(null);
     setLatency(null);
@@ -57,11 +94,16 @@ export default function Home() {
       const response = await fetch(`${apiBase}/rank`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: resolvedUserId, k }),
+        body: JSON.stringify({
+          user_id: payload.userId,
+          movie_id: payload.movieId,
+          k,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const message = await response.json().catch(() => ({}));
+        throw new Error(message.error ?? `API error: ${response.status}`);
       }
 
       const data = (await response.json()) as RankResponse;
@@ -74,11 +116,41 @@ export default function Home() {
     }
   };
 
+  const runRankForUser = () => {
+    const resolvedUserId = Number(userId);
+    if (!resolvedUserId || Number.isNaN(resolvedUserId)) {
+      setStatus("error");
+      setError("Enter a valid user id.");
+      return;
+    }
+    runRank({ userId: resolvedUserId });
+  };
+
+  const runRankForMovie = () => {
+    if (!selectedMovie) {
+      setStatus("error");
+      setError("Pick a movie from the search list.");
+      return;
+    }
+    runRank({ movieId: selectedMovie.movie_id });
+  };
+
   const surpriseMe = () => {
     const randomUser = Math.floor(Math.random() * 200000) + 1;
     setUserId(String(randomUser));
-    runRank(randomUser);
+    runRank({ userId: randomUser });
   };
+
+  const selectMovie = (movie: SearchResult) => {
+    setSelectedMovie(movie);
+    setSearchQuery(movie.title);
+    setSuggestions([]);
+  };
+
+  const modeCopy =
+    mode === "movie"
+      ? "Search by movie title and get similar recommendations."
+      : "Use a MovieLens user id to get personalized rankings.";
 
   return (
     <div className="min-h-screen">
@@ -99,10 +171,7 @@ export default function Home() {
               Live API: {apiBase}
             </div>
           </div>
-          <p className="max-w-2xl text-lg text-[color:var(--muted)]">
-            Explore a ranked list of movies for any user. This UI talks to the Go
-            ranking service and shows a lightweight explanation for each pick.
-          </p>
+          <p className="max-w-2xl text-lg text-[color:var(--muted)]">{modeCopy}</p>
         </header>
 
         <div className="grid gap-8 lg:grid-cols-[360px,1fr]">
@@ -110,46 +179,127 @@ export default function Home() {
             <div>
               <h2 className="text-2xl font-semibold">Run a ranking query</h2>
               <p className="mt-2 text-sm text-[color:var(--muted)]">
-                Use a MovieLens user id and choose how many results to display.
+                Choose a query mode to explore results.
               </p>
             </div>
 
-            <div className="flex flex-col gap-4">
-              <label className="flex flex-col gap-2 text-sm">
+            <div className="flex gap-2 rounded-full border border-[color:var(--stroke)] bg-white/70 p-1 text-sm">
+              <button
+                onClick={() => setMode("movie")}
+                className={`flex-1 rounded-full px-4 py-2 transition ${
+                  mode === "movie"
+                    ? "bg-[color:var(--accent)] text-white"
+                    : "text-[color:var(--muted)] hover:text-[color:var(--ink)]"
+                }`}
+              >
+                Movie search
+              </button>
+              <button
+                onClick={() => setMode("user")}
+                className={`flex-1 rounded-full px-4 py-2 transition ${
+                  mode === "user"
+                    ? "bg-[color:var(--accent)] text-white"
+                    : "text-[color:var(--muted)] hover:text-[color:var(--ink)]"
+                }`}
+              >
                 User id
-                <input
-                  value={userId}
-                  onChange={(event) => setUserId(event.target.value)}
-                  className="rounded-2xl border border-[color:var(--stroke)] bg-white/80 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                  placeholder="e.g. 123"
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm">
-                Top K
-                <input
-                  value={k}
-                  onChange={(event) => setK(Number(event.target.value))}
-                  type="number"
-                  min={1}
-                  max={50}
-                  className="rounded-2xl border border-[color:var(--stroke)] bg-white/80 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                />
-              </label>
+              </button>
             </div>
+
+            {mode === "movie" ? (
+              <div className="flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm">
+                  Movie title
+                  <div className="relative">
+                    <input
+                      value={searchQuery}
+                      onChange={(event) => {
+                        setSearchQuery(event.target.value);
+                        setSelectedMovie(null);
+                      }}
+                      className="w-full rounded-2xl border border-[color:var(--stroke)] bg-white/80 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                      placeholder="Search by title..."
+                    />
+                    {suggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-[110%] z-10 max-h-64 overflow-auto rounded-2xl border border-[color:var(--stroke)] bg-white shadow-xl">
+                        {suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.movie_id}
+                            onClick={() => selectMovie(suggestion)}
+                            className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-[color:var(--bg-2)]"
+                          >
+                            <span>{suggestion.title}</span>
+                            <span className="text-xs text-[color:var(--muted)]">
+                              #{suggestion.movie_id}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {isSearching && (
+                      <span className="absolute right-4 top-3 text-xs text-[color:var(--muted)]">
+                        searching...
+                      </span>
+                    )}
+                  </div>
+                </label>
+                {selectedMovie && (
+                  <div className="rounded-2xl border border-[color:var(--stroke)] bg-white/60 px-4 py-3 text-sm">
+                    Selected: <span className="font-semibold">{selectedMovie.title}</span>
+                  </div>
+                )}
+                <label className="flex flex-col gap-2 text-sm">
+                  Top K
+                  <input
+                    value={k}
+                    onChange={(event) => setK(Number(event.target.value))}
+                    type="number"
+                    min={1}
+                    max={50}
+                    className="rounded-2xl border border-[color:var(--stroke)] bg-white/80 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                  />
+                </label>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm">
+                  User id
+                  <input
+                    value={userId}
+                    onChange={(event) => setUserId(event.target.value)}
+                    className="rounded-2xl border border-[color:var(--stroke)] bg-white/80 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                    placeholder="e.g. 123"
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm">
+                  Top K
+                  <input
+                    value={k}
+                    onChange={(event) => setK(Number(event.target.value))}
+                    type="number"
+                    min={1}
+                    max={50}
+                    className="rounded-2xl border border-[color:var(--stroke)] bg-white/80 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                  />
+                </label>
+              </div>
+            )}
 
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => runRank()}
+                onClick={mode === "movie" ? runRankForMovie : runRankForUser}
                 className="rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
               >
                 Get recommendations
               </button>
-              <button
-                onClick={surpriseMe}
-                className="rounded-full border border-[color:var(--stroke)] bg-white/70 px-5 py-3 text-sm font-semibold text-[color:var(--ink)] transition hover:bg-white"
-              >
-                Surprise me
-              </button>
+              {mode === "user" && (
+                <button
+                  onClick={surpriseMe}
+                  className="rounded-full border border-[color:var(--stroke)] bg-white/70 px-5 py-3 text-sm font-semibold text-[color:var(--ink)] transition hover:bg-white"
+                >
+                  Surprise me
+                </button>
+              )}
             </div>
 
             <div className="rounded-2xl border border-dashed border-[color:var(--stroke)] px-4 py-3 text-xs text-[color:var(--muted)]">

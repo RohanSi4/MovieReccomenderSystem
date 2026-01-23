@@ -25,9 +25,11 @@ go run ./cmd/server
 
 Env vars:
 - `PORT` (default 8080)
-- `MOVIE_DATA_DIR` (default `service/data`)
+- `MOVIE_DATA_DIR` (default auto-detected: `service/data` or `data`)
 
 ## Endpoints
-- `POST /rank` -> body `{ "user_id": 123, "k": 25 }`
+- `POST /rank` -> body `{ "user_id": 123, "k": 25 }` (MovieLens user id)  
+  or `{ "movie_id": 550, "k": 25 }` (movie-based similar titles)
+- `GET /search?q=matrix&limit=10`
 - `GET /movie/{movie_id}`
 - `GET /health`

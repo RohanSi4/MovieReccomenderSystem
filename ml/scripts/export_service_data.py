@@ -13,10 +13,12 @@ import pandas as pd
 MOVIE_COLUMNS = [
     "movieId",
     "title",
+    "genres",
     "rating_mean",
     "rating_count",
     "tmdb_vote_avg",
     "tmdb_popularity",
+    "tmdb_genres",
     "tmdb_poster_path",
     "tmdb_overview",
     "tmdb_release_date",

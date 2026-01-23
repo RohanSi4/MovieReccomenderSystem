@@ -2,6 +2,14 @@
 
 This folder contains the offline ML pipeline. Start with data ingestion to validate MovieLens data.
 
+## Quick Start
+Create + activate virtual env (macOS/zsh):
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
 ## Data Layout
 - `ml/data/raw/` should contain the MovieLens CSV files (unzipped).
 - `ml/data/processed/` will contain normalized Parquet outputs.
@@ -61,6 +69,8 @@ python ml/scripts/build_features.py \
   --out-dir ml/data/processed/features
 ```
 
+If you run TMDB enrichment later, rerun `build_features.py` to include the new columns.
+
 ## Training Dataset
 Run:
 ```bash
@@ -99,3 +109,8 @@ python ml/scripts/export_service_data.py \
 ```
 
 This creates compact CSVs consumed by the Go API.
+
+## Notes
+- `user_id` values in the UI come from MovieLens (not a TMDB account).
+- The Go service currently uses heuristic scoring over exported features; the
+  LightGBM model is trained offline and saved in `ml/models/`.
