@@ -12,6 +12,10 @@ data pipelines, model training, and online ranking at inference time.
 - **Movie mode:** search by title, pick a movie, and get similar recommendations.
 - Uses MovieLens for ratings data and TMDB for metadata/posters.
 
+## Demo Screenshots
+![UI overview](docs/ui.png)
+![Ranked results](docs/recs.png)
+
 ## How It Works
 1) **Ingestion + validation** of MovieLens CSVs  
 2) **TMDB enrichment** for metadata (genres, popularity, posters, etc.)  
@@ -62,6 +66,11 @@ Create + activate virtual env (macOS/zsh):
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+Makefile shortcuts:
+```bash
+make help
 ```
 
 Set your TMDB key (optional but recommended):
