@@ -133,10 +133,20 @@ func (a *App) LoadData() error {
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
+    setCORS(w)
+    if r.Method == http.MethodOptions {
+        w.WriteHeader(http.StatusNoContent)
+        return
+    }
     writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 }
 
 func (a *App) handleRank(w http.ResponseWriter, r *http.Request) {
+    setCORS(w)
+    if r.Method == http.MethodOptions {
+        w.WriteHeader(http.StatusNoContent)
+        return
+    }
     start := time.Now()
     if r.Method != http.MethodPost {
         writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST required"})
@@ -169,6 +179,11 @@ func (a *App) handleRank(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMovie(w http.ResponseWriter, r *http.Request) {
+    setCORS(w)
+    if r.Method == http.MethodOptions {
+        w.WriteHeader(http.StatusNoContent)
+        return
+    }
     parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/movie/"), "/")
     if len(parts) == 0 || parts[0] == "" {
         writeJSON(w, http.StatusBadRequest, map[string]string{"error": "movie id required"})
@@ -413,6 +428,12 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
     if err := json.NewEncoder(w).Encode(payload); err != nil {
         log.Printf("json encode error: %v", err)
     }
+}
+
+func setCORS(w http.ResponseWriter) {
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
 func getEnv(key, fallback string) string {

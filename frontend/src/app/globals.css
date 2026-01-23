@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f4efe6;
+  --bg-2: #f6dfbf;
+  --ink: #1b1714;
+  --muted: #6f655f;
+  --card: #fff7ea;
+  --stroke: #e2d2c2;
+  --accent: #e8772e;
+  --accent-2: #2f6f6d;
+  --shadow: 0 20px 45px rgba(27, 23, 20, 0.12);
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-space);
+  --font-mono: var(--font-space);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 10% 0%, rgba(232, 119, 46, 0.18), transparent 60%),
+      radial-gradient(900px 600px at 90% 20%, rgba(47, 111, 109, 0.16), transparent 60%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    color: var(--ink);
+    font-family: var(--font-space), system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-fraunces), serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .card {
+    background: var(--card);
+    border: 1px solid var(--stroke);
+    box-shadow: var(--shadow);
+  }
+
+  .pill {
+    border: 1px solid var(--stroke);
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  .fade-grid {
+    background-image:
+      linear-gradient(rgba(27, 23, 20, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(27, 23, 20, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(circle at top, rgba(0, 0, 0, 0.5) 0%, transparent 70%);
+  }
+}

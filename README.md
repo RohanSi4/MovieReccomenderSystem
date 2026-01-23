@@ -40,7 +40,7 @@ Frontend Demo (Web)
 ## Tech Stack
 - **ML pipeline:** Python, LightGBM
 - **Online service:** Go
-- **Frontend:** lightweight web UI (framework TBD)
+- **Frontend:** Next.js + Tailwind
 - **Data:** MovieLens + TMDB API
 
 ## Local Run (Dev)
@@ -56,6 +56,12 @@ python ml/scripts/export_service_data.py --features-dir ml/data/processed/featur
 2) Run the Go service:
 ```bash
 go run ./service/cmd/server
+```
+
+3) Run the frontend:
+```bash
+cd frontend
+npm run dev
 ```
 
 ## API (Draft)
