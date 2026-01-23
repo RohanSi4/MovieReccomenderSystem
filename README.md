@@ -44,6 +44,13 @@ Frontend Demo (Web)
 - **Data:** MovieLens + TMDB API
 
 ## Local Run (Dev)
+Create + activate virtual env (macOS/zsh):
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
 1) Build pipeline outputs:
 ```bash
 python ml/scripts/ingest_movielens.py --raw-dir ml/data/raw --out-dir ml/data/processed
