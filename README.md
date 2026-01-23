@@ -164,3 +164,24 @@ Response:
 ## Status
 Demo complete and working locally. Model inference integration in Go is optional
 future work; the current service ranks using a heuristic over feature tables.
+
+## Metrics (Run to Populate)
+Offline quality (NDCG@10, model vs baseline):
+```bash
+python ml/scripts/evaluate_model.py \
+  --training-dir ml/data/processed/training \
+  --model-dir ml/models \
+  --ndcg-k 10
+```
+
+Scale (dataset and feature table sizes):
+```bash
+python ml/scripts/report_dataset_stats.py \
+  --processed-dir ml/data/processed \
+  --features-dir ml/data/processed/features
+```
+
+Latency (p50/p95/p99):
+```bash
+python service/scripts/benchmark_latency.py --base-url http://localhost:8080 --requests 200 --k 25
+```

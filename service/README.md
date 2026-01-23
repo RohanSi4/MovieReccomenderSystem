@@ -33,3 +33,9 @@ Env vars:
 - `GET /search?q=matrix&limit=10`
 - `GET /movie/{movie_id}`
 - `GET /health`
+
+## Latency Bench
+Run (with server running):
+```bash
+python service/scripts/benchmark_latency.py --base-url http://localhost:8080 --requests 200 --k 25
+```

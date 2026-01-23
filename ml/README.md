@@ -110,6 +110,22 @@ python ml/scripts/export_service_data.py \
 
 This creates compact CSVs consumed by the Go API.
 
+## Metrics (Resume / Reporting)
+Evaluate model vs baseline (NDCG@10 by default):
+```bash
+python ml/scripts/evaluate_model.py \
+  --training-dir ml/data/processed/training \
+  --model-dir ml/models \
+  --ndcg-k 10
+```
+
+Dataset scale report:
+```bash
+python ml/scripts/report_dataset_stats.py \
+  --processed-dir ml/data/processed \
+  --features-dir ml/data/processed/features
+```
+
 ## Notes
 - `user_id` values in the UI come from MovieLens (not a TMDB account).
 - The Go service currently uses heuristic scoring over exported features; the
