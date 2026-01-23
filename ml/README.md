@@ -119,6 +119,14 @@ python ml/scripts/evaluate_model.py \
   --ndcg-k 10
 ```
 
+Compare model vs heuristic (online-style scoring):
+```bash
+python ml/scripts/compare_heuristic_vs_model.py \
+  --training-dir ml/data/processed/training \
+  --model-dir ml/models \
+  --ndcg-k 10
+```
+
 Dataset scale report:
 ```bash
 python ml/scripts/report_dataset_stats.py \

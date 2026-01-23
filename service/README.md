@@ -26,6 +26,8 @@ go run ./cmd/server
 Env vars:
 - `PORT` (default 8080)
 - `MOVIE_DATA_DIR` (default auto-detected: `service/data` or `data`)
+- `MODEL_API_BASE` (optional, e.g. `http://localhost:8090` to use LightGBM inference)
+- `CANDIDATE_POOL_SIZE` (default 2000)
 
 ## Endpoints
 - `POST /rank` -> body `{ "user_id": 123, "k": 25 }` (MovieLens user id)  

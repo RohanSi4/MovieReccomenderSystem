@@ -37,12 +37,15 @@ type UserFeatures struct {
 }
 
 type App struct {
-	Movies       []Movie
-	MoviesByID   map[int]Movie
-	UsersByID    map[int]UserFeatures
-	DataDir      string
-	PosterBase   string
-	ScoreWeights ScoreWeights
+	Movies        []Movie
+	MoviesByID    map[int]Movie
+	UsersByID     map[int]UserFeatures
+	CandidateIDs  []int
+	CandidateSize int
+	DataDir       string
+	PosterBase    string
+	ModelAPIBase  string
+	ScoreWeights  ScoreWeights
 }
 
 type ScoreWeights struct {
@@ -74,6 +77,20 @@ type RankResponse struct {
 	LatencyMS int64        `json:"latency_ms"`
 }
 
+type ScoreRequest struct {
+	UserID   int   `json:"user_id"`
+	MovieIDs []int `json:"movie_ids"`
+}
+
+type ScoreItem struct {
+	MovieID int     `json:"movie_id"`
+	Score   float64 `json:"score"`
+}
+
+type ScoreResponse struct {
+	Scores []ScoreItem `json:"scores"`
+}
+
 type SearchResult struct {
 	MovieID int    `json:"movie_id"`
 	Title   string `json:"title"`
@@ -87,9 +104,13 @@ func main() {
 			"data",
 		}, "service/data")
 	}
+	modelAPI := getEnv("MODEL_API_BASE", "")
+	candidateSize := getEnvInt("CANDIDATE_POOL_SIZE", 2000)
 	app := &App{
-		DataDir:    dataDir,
-		PosterBase: "https://image.tmdb.org/t/p/w342",
+		DataDir:       dataDir,
+		PosterBase:    "https://image.tmdb.org/t/p/w342",
+		ModelAPIBase:  modelAPI,
+		CandidateSize: candidateSize,
 		ScoreWeights: ScoreWeights{
 			VoteAvg:  0.15,
 			Pop:      0.02,
@@ -100,6 +121,10 @@ func main() {
 	}
 
 	log.Printf("Using data dir: %s", app.DataDir)
+	if app.ModelAPIBase != "" {
+		log.Printf("Model API: %s", app.ModelAPIBase)
+	}
+	log.Printf("Candidate pool size: %d", app.CandidateSize)
 	if err := app.LoadData(); err != nil {
 		log.Printf("Data load warning: %v", err)
 	}
@@ -149,6 +174,8 @@ func (a *App) LoadData() error {
 		a.UsersByID[u.UserID] = u
 	}
 
+	a.CandidateIDs = buildCandidatePool(movies, a.CandidateSize)
+
 	log.Printf("Loaded %d movies, %d users", len(movies), len(users))
 	return nil
 }
@@ -193,7 +220,6 @@ func (a *App) handleRank(w http.ResponseWriter, r *http.Request) {
 
 	var results []RankResult
 	var response RankResponse
-	response.LatencyMS = time.Since(start).Milliseconds()
 
 	if req.MovieID != nil && *req.MovieID > 0 {
 		seed, ok := a.MoviesByID[*req.MovieID]
@@ -204,19 +230,34 @@ func (a *App) handleRank(w http.ResponseWriter, r *http.Request) {
 		results = a.rankMoviesByMovie(seed, req.K)
 		response.MovieID = *req.MovieID
 	} else if req.UserID != nil && *req.UserID > 0 {
-		user, ok := a.UsersByID[*req.UserID]
-		var userPtr *UserFeatures
-		if ok {
-			userPtr = &user
+		if a.ModelAPIBase != "" {
+			ranked, err := a.rankMoviesWithModel(*req.UserID, req.K)
+			if err == nil {
+				results = ranked
+			} else {
+				log.Printf("Model API error, falling back to heuristic: %v", err)
+				user, ok := a.UsersByID[*req.UserID]
+				var userPtr *UserFeatures
+				if ok {
+					userPtr = &user
+				}
+				results = a.rankMovies(userPtr, req.K)
+			}
+		} else {
+			user, ok := a.UsersByID[*req.UserID]
+			var userPtr *UserFeatures
+			if ok {
+				userPtr = &user
+			}
+			results = a.rankMovies(userPtr, req.K)
 		}
-		results = a.rankMovies(userPtr, req.K)
 		response.UserID = *req.UserID
 	} else {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid user_id or movie_id"})
 		return
 	}
-	response.Results = results
 	response.LatencyMS = time.Since(start).Milliseconds()
+	response.Results = results
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -339,6 +380,69 @@ func (a *App) rankMoviesByMovie(seed Movie, k int) []RankResult {
 	return results
 }
 
+func (a *App) rankMoviesWithModel(userID int, k int) ([]RankResult, error) {
+	if len(a.CandidateIDs) == 0 {
+		return nil, fmt.Errorf("no candidates available")
+	}
+	candidates := a.CandidateIDs
+	if k > len(candidates) {
+		k = len(candidates)
+	}
+
+	payload := ScoreRequest{
+		UserID:   userID,
+		MovieIDs: candidates,
+	}
+	buf, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Post(a.ModelAPIBase+"/score", "application/json", strings.NewReader(string(buf)))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("model api status %d", resp.StatusCode)
+	}
+
+	var scoreResp ScoreResponse
+	if err := json.NewDecoder(resp.Body).Decode(&scoreResp); err != nil {
+		return nil, err
+	}
+
+	scored := make([]RankResult, 0, len(scoreResp.Scores))
+	for _, item := range scoreResp.Scores {
+		movie, ok := a.MoviesByID[item.MovieID]
+		if !ok {
+			continue
+		}
+		user, ok := a.UsersByID[userID]
+		var userPtr *UserFeatures
+		if ok {
+			userPtr = &user
+		}
+		scored = append(scored, RankResult{
+			MovieID:   movie.MovieID,
+			Score:     item.Score,
+			Title:     movie.Title,
+			PosterURL: joinPosterURL(a.PosterBase, movie.TMDBPosterPath),
+			Reasons:   buildReasons(movie, userPtr),
+		})
+	}
+
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].Score > scored[j].Score
+	})
+	if k > len(scored) {
+		k = len(scored)
+	}
+	return scored[:k], nil
+}
+
 func (a *App) scoreMovie(m Movie, user *UserFeatures) float64 {
 	score := 0.0
 	score += m.RatingMean
@@ -379,6 +483,39 @@ func buildMovieReasons(seed Movie, candidate Movie) []string {
 		reasons = append(reasons, "popular_in_movielens")
 	}
 	return reasons
+}
+
+func buildCandidatePool(movies []Movie, size int) []int {
+	if size <= 0 {
+		size = 2000
+	}
+	type scored struct {
+		MovieID int
+		Count   int
+		Mean    float64
+	}
+	scoredMovies := make([]scored, 0, len(movies))
+	for _, m := range movies {
+		scoredMovies = append(scoredMovies, scored{
+			MovieID: m.MovieID,
+			Count:   m.RatingCount,
+			Mean:    m.RatingMean,
+		})
+	}
+	sort.Slice(scoredMovies, func(i, j int) bool {
+		if scoredMovies[i].Count == scoredMovies[j].Count {
+			return scoredMovies[i].Mean > scoredMovies[j].Mean
+		}
+		return scoredMovies[i].Count > scoredMovies[j].Count
+	})
+	if size > len(scoredMovies) {
+		size = len(scoredMovies)
+	}
+	out := make([]int, 0, size)
+	for i := 0; i < size; i++ {
+		out = append(out, scoredMovies[i].MovieID)
+	}
+	return out
 }
 
 func scoreMovieSimilarity(seed Movie, candidate Movie) float64 {
@@ -680,4 +817,16 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

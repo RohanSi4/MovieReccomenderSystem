@@ -79,13 +79,24 @@ python ml/scripts/train_lightgbm.py --training-dir ml/data/processed/training --
 python ml/scripts/export_service_data.py --features-dir ml/data/processed/features --out-dir service/data
 ```
 
-### 2) Run the Go service
+### 2) (Optional) Run model inference service
+```bash
+uvicorn model_service.app:app --host 0.0.0.0 --port 8090
+```
+
+### 3) Run the Go service
+```bash
+cd service
+MODEL_API_BASE=http://localhost:8090 go run ./cmd/server
+```
+
+If you skip the model service, run:
 ```bash
 cd service
 go run ./cmd/server
 ```
 
-### 3) Run the frontend
+### 4) Run the frontend
 ```bash
 cd frontend
 npm run dev
@@ -169,6 +180,14 @@ future work; the current service ranks using a heuristic over feature tables.
 Offline quality (NDCG@10, model vs baseline):
 ```bash
 python ml/scripts/evaluate_model.py \
+  --training-dir ml/data/processed/training \
+  --model-dir ml/models \
+  --ndcg-k 10
+```
+
+Online-style quality (model vs heuristic):
+```bash
+python ml/scripts/compare_heuristic_vs_model.py \
   --training-dir ml/data/processed/training \
   --model-dir ml/models \
   --ndcg-k 10
