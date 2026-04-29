@@ -111,6 +111,27 @@ cd frontend
 npm run dev
 ```
 
+## Deploy
+
+Deploy `service/` as a Go Web Service on Render:
+```bash
+go build -o app ./cmd/server
+./app
+```
+
+Render supplies `PORT` automatically. Set `CORS_ALLOWED_ORIGINS` to the Vercel
+frontend URL once it exists. The service reads exported CSVs from `service/data`
+by default, or from `MOVIE_DATA_DIR` if configured.
+
+Deploy `frontend/` as a Next.js app on Vercel and set:
+```bash
+NEXT_PUBLIC_API_BASE=https://your-render-api-url
+```
+
+After both deploys are live, update the portfolio project's
+`content/projects/movie-recommender/meta.json` `liveUrl` to the Vercel frontend
+URL.
+
 ## API
 
 ### Rank Movies

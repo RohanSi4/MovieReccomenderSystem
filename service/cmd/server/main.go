@@ -37,15 +37,16 @@ type UserFeatures struct {
 }
 
 type App struct {
-	Movies        []Movie
-	MoviesByID    map[int]Movie
-	UsersByID     map[int]UserFeatures
-	CandidateIDs  []int
-	CandidateSize int
-	DataDir       string
-	PosterBase    string
-	ModelAPIBase  string
-	ScoreWeights  ScoreWeights
+	Movies         []Movie
+	MoviesByID     map[int]Movie
+	UsersByID      map[int]UserFeatures
+	CandidateIDs   []int
+	CandidateSize  int
+	DataDir        string
+	PosterBase     string
+	ModelAPIBase   string
+	AllowedOrigins map[string]bool
+	ScoreWeights   ScoreWeights
 }
 
 type ScoreWeights struct {
@@ -107,10 +108,11 @@ func main() {
 	modelAPI := getEnv("MODEL_API_BASE", "")
 	candidateSize := getEnvInt("CANDIDATE_POOL_SIZE", 2000)
 	app := &App{
-		DataDir:       dataDir,
-		PosterBase:    "https://image.tmdb.org/t/p/w342",
-		ModelAPIBase:  modelAPI,
-		CandidateSize: candidateSize,
+		DataDir:        dataDir,
+		PosterBase:     "https://image.tmdb.org/t/p/w342",
+		ModelAPIBase:   modelAPI,
+		CandidateSize:  candidateSize,
+		AllowedOrigins: parseAllowedOrigins(getEnv("CORS_ALLOWED_ORIGINS", "")),
 		ScoreWeights: ScoreWeights{
 			VoteAvg:  0.15,
 			Pop:      0.02,
@@ -124,6 +126,7 @@ func main() {
 	if app.ModelAPIBase != "" {
 		log.Printf("Model API: %s", app.ModelAPIBase)
 	}
+	log.Printf("CORS allowed origins: %s", strings.Join(originList(app.AllowedOrigins), ", "))
 	log.Printf("Candidate pool size: %d", app.CandidateSize)
 	if err := app.LoadData(); err != nil {
 		log.Printf("Data load warning: %v", err)
@@ -181,7 +184,7 @@ func (a *App) LoadData() error {
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
-	setCORS(w)
+	a.setCORS(w, r)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -190,7 +193,7 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleRank(w http.ResponseWriter, r *http.Request) {
-	setCORS(w)
+	a.setCORS(w, r)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -262,7 +265,7 @@ func (a *App) handleRank(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleSearch(w http.ResponseWriter, r *http.Request) {
-	setCORS(w)
+	a.setCORS(w, r)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -287,7 +290,7 @@ func (a *App) handleSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleMovie(w http.ResponseWriter, r *http.Request) {
-	setCORS(w)
+	a.setCORS(w, r)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -793,10 +796,41 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	}
 }
 
-func setCORS(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+func (a *App) setCORS(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	if origin != "" && (a.AllowedOrigins["*"] || a.AllowedOrigins[origin]) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Add("Vary", "Origin")
+	}
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+}
+
+func parseAllowedOrigins(raw string) map[string]bool {
+	defaults := []string{
+		"http://localhost:3000",
+		"http://localhost:3001",
+	}
+	allowed := make(map[string]bool, len(defaults))
+	for _, origin := range defaults {
+		allowed[origin] = true
+	}
+	for _, part := range strings.Split(raw, ",") {
+		origin := strings.TrimSpace(part)
+		if origin != "" {
+			allowed[origin] = true
+		}
+	}
+	return allowed
+}
+
+func originList(origins map[string]bool) []string {
+	out := make([]string, 0, len(origins))
+	for origin := range origins {
+		out = append(out, origin)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func resolveDataDir(candidates []string, fallback string) string {

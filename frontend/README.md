@@ -12,6 +12,11 @@ Default API target is `http://localhost:8080`. To override:
 NEXT_PUBLIC_API_BASE=http://localhost:8080 npm run dev
 ```
 
+For Vercel, set the same variable to the deployed Go API URL:
+```bash
+NEXT_PUBLIC_API_BASE=https://your-render-api-url
+```
+
 ## Notes
 - This is a client-only page that calls `/rank` and `/search` on the Go service.
 - **User mode** expects a MovieLens `user_id`.

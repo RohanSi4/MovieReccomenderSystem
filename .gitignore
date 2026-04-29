@@ -1,10 +1,13 @@
 # Data artifacts
 ml/data/raw/
 ml/data/processed/
-data/
+/data/
 *.zip
 ml/models/
-service/data/
+service/data/*
+!service/data/
+!service/data/movie_features.csv
+!service/data/user_features.csv
 
 # Python
 __pycache__/

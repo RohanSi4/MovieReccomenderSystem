@@ -28,6 +28,19 @@ Env vars:
 - `MOVIE_DATA_DIR` (default auto-detected: `service/data` or `data`)
 - `MODEL_API_BASE` (optional, e.g. `http://localhost:8090` to use LightGBM inference)
 - `CANDIDATE_POOL_SIZE` (default 2000)
+- `CORS_ALLOWED_ORIGINS` (comma-separated production frontend origins; local
+  defaults are `http://localhost:3000` and `http://localhost:3001`)
+
+For Render, create a Go Web Service with:
+```bash
+go build -o app ./cmd/server
+./app
+```
+
+Set `CORS_ALLOWED_ORIGINS` to the deployed Vercel frontend URL, for example:
+```bash
+CORS_ALLOWED_ORIGINS=https://movie-recommender-demo.vercel.app
+```
 
 ## Endpoints
 - `POST /rank` -> body `{ "user_id": 123, "k": 25 }` (MovieLens user id)  
